@@ -31,18 +31,18 @@ public class TelegramBot extends TelegramLongPollingBot {
     @Autowired
     private UserRepository userRepository;
     final BotConfig config;
-    static final String HELP_TEXT = "This bot is created to КУРСОВАЯ РАБОТА.\n\n" +
-            "You can execute commands from the main menu on the left or by typing a command:\n\n" +
-            "Type /start to see a welcome message\n";
+    static final String HELP_TEXT = "Этот бот создан для КУРСОВОЙ РАБОТЫ.\n\n" +
+            "Вы можете выполнять команды из главного меню слева или набрав команду:\n\n" +
+            "Введите /start чтобы начать работу.\n";
 
-
+    //Меню бота в нижнем левом углу
     public TelegramBot(BotConfig config) {
         this.config = config;
         List<BotCommand> listofCommand= new ArrayList<>();
-        listofCommand.add (new BotCommand("/start","get a welcome message"));
-        listofCommand.add (new BotCommand("/mydata", "get your data stored"));
-        listofCommand.add (new BotCommand("/help","info to used this bot "));
-        listofCommand.add (new BotCommand("/settings", "set your preference "));
+        listofCommand.add (new BotCommand("/start","Приветсвие бота"));
+        listofCommand.add (new BotCommand("/mydata", "Показать мою информацию"));
+        listofCommand.add (new BotCommand("/help","Информация по использованию бота"));
+        listofCommand.add (new BotCommand("/settings", "Настройки"));
         try{
             this.execute(new SetMyCommands(listofCommand,new BotCommandScopeDefault(),null));
         }
@@ -61,11 +61,13 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-
+        //Проверка ботом чата
         if(update.hasMessage() && update.getMessage().hasText()){
             String messegeText = update.getMessage().getText();
             long chatID = update.getMessage().getChatId();
+            //Команды для бота
             switch (messegeText) {
+                //При вызове пользователем этой команды, бот вызывает метод проверки регистрации пользователя в бд.
                 case "/start":
                     registerUser(update.getMessage());
                     startCommandReceived(chatID, update.getMessage().getChat().getFirstName());
@@ -82,7 +84,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             }
         }
     }
-
+    //Тут бот сначала сверяет пользователя в базе данных и если не находит зарегистрированного пользователя, то регистрирует его
     private void registerUser(Message msg) {
         if(userRepository.findById(msg.getChatId()).isEmpty()){
             var chatId = msg.getChatId();
@@ -99,31 +101,32 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
+    //Приветсвие бота
     private void startCommandReceived(Long chatID, String name) {
-        String answer = "hi," + name;
+        String answer = "Привет," + name;
         sendMessage(chatID, answer);
 
     }
-
     private void sendMessage(long chatID, @NonNull String textToSend){
         SendMessage message = new SendMessage ();
         message.setChatId(String.valueOf(chatID));
         message.setText(textToSend);
 
+        //Создание экранной клавиатуры бота.
         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
 
         List<KeyboardRow> keyboardRows = new ArrayList<>();
 
         KeyboardRow row = new KeyboardRow();
 
-        row.add("weather");
-        row.add("get random joke");
+        row.add("Квесты");
+        row.add("Патроны");
 
         keyboardRows.add(row);
         row = new KeyboardRow();
-        row.add("register");
-        row.add("check my data");
-        row.add("Люблю Улика");
+        row.add("Броня");
+        row.add("Сборки оружия");
+        row.add("Новости");
         keyboardRows.add(row);
         keyboardMarkup.setKeyboard(keyboardRows);
         message.setReplyMarkup(keyboardMarkup);

@@ -7,6 +7,8 @@ import java.sql.Timestamp;
 
 @Entity(name="userDataTable")
 
+//Бот создает таблицу в базе данных и заполняет новых пользователей.
+
 public class User {
     @Id
     private Long chatID;
