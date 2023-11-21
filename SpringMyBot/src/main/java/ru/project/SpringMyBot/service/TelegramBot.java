@@ -1,58 +1,75 @@
 package ru.project.SpringMyBot.service;
 
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.TypeFactory;
+import com.vdurmont.emoji.EmojiParser;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
-import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
-import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboard;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.project.SpringMyBot.config.BotConfig;
 import ru.project.SpringMyBot.model.User;
 import ru.project.SpringMyBot.model.UserRepository;
+import ru.project.SpringMyBot.model.quests;
+import ru.project.SpringMyBot.model.QuestsRepository;
 
+import java.io.File;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
 @Component //позволяет автоматически создать экземпляр Спрингу
-public class TelegramBot extends TelegramLongPollingBot //расширение класс позволяющее общаться юоту с телеграммом
-    {
+public class TelegramBot extends TelegramLongPollingBot {//расширение класс позволяющее общаться юоту с телеграммом
 
     @Autowired
     private UserRepository userRepository;
+    private QuestsRepository questsRepository;
     final BotConfig config;
+
+
     static final String HELP_TEXT = "Этот бот создан для КУРСОВОЙ РАБОТЫ.\n\n" +
             "Вы можете выполнять команды из главного меню слева или набрав команду:\n\n" +
             "Введите /start чтобы начать работу.\n";
 
     //Конструктор
-    public TelegramBot(BotConfig config) {
+    public TelegramBot(QuestsRepository questsRepository, BotConfig config) {
+        this.questsRepository = questsRepository;
         this.config = config;
 
         //Меню бота в нижнем левом углу
-        List<BotCommand> listofCommand= new ArrayList<>();
-        listofCommand.add (new BotCommand("/start","Приветсвие бота"));
-        listofCommand.add (new BotCommand("/mydata", "Показать мою информацию"));
-        listofCommand.add (new BotCommand("/help","Информация по использованию бота"));
-        listofCommand.add (new BotCommand("/settings", "Настройки"));
-        try{
-            this.execute(new SetMyCommands(listofCommand,new BotCommandScopeDefault(),null));
+        List<BotCommand> listofCommand = new ArrayList<>();
+        listofCommand.add(new BotCommand("/start", "Приветсвие бота"));
+        listofCommand.add(new BotCommand("/mydata", "Показать мою информацию"));
+        listofCommand.add(new BotCommand("/help", "Информация по использованию бота"));
+        listofCommand.add(new BotCommand("/settings", "Настройки"));
+        listofCommand.add(new BotCommand("/register", "register"));
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            TypeFactory typeFactory = objectMapper.getTypeFactory();
+            List<quests> questsList = objectMapper.readValue(new File("db/quests.json"),
+                    typeFactory.constructCollectionType(List.class, quests.class));
+            this.questsRepository.saveAll(questsList);
         }
-        catch (TelegramApiException e){
+        catch(Exception e) {
+            log.error("Error: " + e.getMessage()); //создает сообщение об ошибке в лог файле
         }
+    }
 
-        }
+
+
 
 
 
@@ -61,7 +78,7 @@ public class TelegramBot extends TelegramLongPollingBot //расширение �
     public String getBotUsername() { return config.getBotName(); }
 
     @Override
-    //бот передает телграмму свое имя
+    //бот передает телграмму свой токен
     public String getBotToken() { return config.getToken(); }
 
     @Override
@@ -82,16 +99,98 @@ public class TelegramBot extends TelegramLongPollingBot //расширение �
                 case "/help":
                     sendMessage(chatID, HELP_TEXT);
                     break;
-                case "Люблю Улика":
+                case "/Люблю Улика":
                     sendMessage(chatID,"Улик тоже тебя любит");
                     break;
+                case "/register":
+                    register(chatID); //
+                    break;
                 default: //ответ бота на не определённые комнады
-                    sendMessage(chatID, "Sorry");
+                    commandNotFound(chatID);
+                    break;
+            }
 
+        }//проверка если вместо сообщения прислали какое либо значение(нажали кнопку)
+        //если ппользователь нажал кнопку то бот меняет содеражние сообщения.
+        else if (update.hasCallbackQuery()) {
+            String callbackData = update.getCallbackQuery().getData();
+            //Для изменения сообщения нужно получить id собщения.
+            long messageID = update.getCallbackQuery().getMessage().getMessageId();
+            long chatID = update.getCallbackQuery().getMessage().getChatId();
+
+            if(callbackData.equals("YES_BUTTON")){
+                String text = "You pressed YES BUTTON";
+                EditMessageText message = new EditMessageText();
+                message.setChatId(String.valueOf(chatID));
+                message.setText(text);
+                message.setMessageId((int)(messageID)); //Мы указываем чтобы новое сообщение конкретно заменило текст
+                //а не отправило новое сообщение
+                try{
+                    execute(message);
+                }
+                catch (TelegramApiException e){
+                    log.error("Error: " + e.getMessage());
+                }
+            }
+            else  if(callbackData.equals("NO_BUTTON")){
+                String text = "You pressed NO BUTTON";
+                EditMessageText message = new EditMessageText();
+                message.setChatId(String.valueOf(chatID));
+                message.setText(text);
+                message.setMessageId((int)(messageID));
+                try{
+                    execute(message);
+                }
+                catch (TelegramApiException e){
+                    log.error("Error: " + e.getMessage());
+                }
             }
         }
     }
-    //Тут бот сначала сверяет пользователя в базе данных и если не находит зарегистрированного пользователя, то регистрирует его
+
+    //метод ответа на неопределеные сообщения
+    private void commandNotFound(long chatID) {
+        String answer = EmojiParser.parseToUnicode("Я не знаю такую команду." + " :neutral_face:");
+        sendMessage (chatID, answer);
+        log.info("Replied to user: " + chatID); //создает сообщение в лог файле об ответе бота пользователю
+    }
+
+
+    // Метот создания экранных кнопок под сообщениями бота
+        private void register(long chatId) {
+            SendMessage message = new SendMessage();
+            message.setChatId(String.valueOf(chatId));
+            message.setText("Do you really want to register?");
+
+            InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rowsInLine = new ArrayList<>();
+            List<InlineKeyboardButton> rowInLine = new ArrayList<>();
+
+            var yesButton = new InlineKeyboardButton();
+            yesButton.setText("Yes");
+            yesButton.setCallbackData("YES_BUTTON");
+
+            var noButton = new InlineKeyboardButton();
+            noButton.setText("No");
+            noButton.setCallbackData("NO_BUTTON");
+
+            rowInLine.add(yesButton);
+            rowInLine.add(noButton);
+            rowsInLine.add(rowInLine);
+
+            markupInline.setKeyboard(rowsInLine);
+            message.setReplyMarkup(markupInline);
+
+            try{
+                execute(message);
+            }
+            catch (TelegramApiException e){
+                log.error("Error: " + e.getMessage());
+            }
+
+        }
+
+        //Тут бот сначала сверяет пользователя в базе данных и если не находит зарегистрированного пользователя, то регистрирует его
     private void registerUser(Message msg) {
         if(userRepository.findById(msg.getChatId()).isEmpty()){
             var chatId = msg.getChatId();
@@ -105,15 +204,19 @@ public class TelegramBot extends TelegramLongPollingBot //расширение �
             user.setRegisteredAt(new Timestamp(System.currentTimeMillis()));
             userRepository.save(user);
 
+            log.info("registered a user: " + user, chatId); //отправляет запись в лог файл об регистрации пользователя
+
         }
     }
 
     //Метод приветсвия бота
     private void startCommandReceived(Long chatID, String name) {
-        String answer = "Привет," + name;
+        String answer = EmojiParser.parseToUnicode("Привет, Тарковчанин!  " + name +  ", чем я могу помочь ?" + ":blush:" );
+        log.info("Greeted the user: " + name, chatID);
         sendMessage(chatID, answer);
 
     }
+        //Метод для отправки сообщений
     private void sendMessage(long chatID, @NonNull String textToSend){
         SendMessage message = new SendMessage ();
         message.setChatId(String.valueOf(chatID));
@@ -141,6 +244,7 @@ public class TelegramBot extends TelegramLongPollingBot //расширение �
             execute(message);
         }
         catch (TelegramApiException e){
+            log.error("Error: " + e.getMessage());
         }
     }
 }
