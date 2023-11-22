@@ -1,14 +1,12 @@
 package ru.project.SpringMyBot.model;
 
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import lombok.Data;
 
 @Entity(name="quests")
-@Data
 public class  quests {
     @Id
+    private Integer id;
     private String title;
     private String dealer;
     private String location;
@@ -18,6 +16,13 @@ public class  quests {
     private String rewards;
     private int  exp;
 
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
 
     public String getTitle() {
         return title;

@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "name": "9x18mm PM RG028 gzh",
+    "caliber": "Caliber9x18PM",
+    "damage": 65,
+    "penetrationPower": 13
+    },
+  {
+    "id": 2,
+    "name": "7.62x51mm M62 Tracer",
+    "caliber": "Caliber762x51",
+    "damage": 79,
+    "penetrationPower": 44
+    },
+  {
+    "id": 3,
+    "name": "5.56x45mm M995",
+    "caliber": "Caliber556x45NATO",
+    "damage": 40,
+    "penetrationPower": 53
+    },
+  {
+    "id": 4,
+    "name": "7.62x39mm PS gzh",
+    "caliber": "Caliber762x39",
+    "damage": 57,
+    "penetrationPower": 32
+    },
+  {
+    "id": 5,
+    "name": "5.45x39mm US gs",
+    "caliber": "Caliber545x39",
+    "damage": 65,
+    "penetrationPower": 15
+  }
+]

@@ -20,13 +20,10 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.project.SpringMyBot.config.BotConfig;
-import ru.project.SpringMyBot.model.User;
-import ru.project.SpringMyBot.model.UserRepository;
-import ru.project.SpringMyBot.model.quests;
-import ru.project.SpringMyBot.model.QuestsRepository;
+import ru.project.SpringMyBot.model.*;
 
 import java.io.File;
-import java.sql.Timestamp;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,16 +33,22 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
 
     @Autowired
     private UserRepository userRepository;
+
+    private AmmoRepository ammoRepository;
     private QuestsRepository questsRepository;
     final BotConfig config;
 
 
+    static final String url = "jdbc:mysql://localhost:3306/tg-bot";
+    static final String username = "root";
+    static final String password = "Parol1/5";
     static final String HELP_TEXT = "Этот бот создан для КУРСОВОЙ РАБОТЫ.\n\n" +
             "Вы можете выполнять команды из главного меню слева или набрав команду:\n\n" +
             "Введите /start чтобы начать работу.\n";
 
     //Конструктор
-    public TelegramBot(QuestsRepository questsRepository, BotConfig config) {
+    public TelegramBot(AmmoRepository ammoRepository, QuestsRepository questsRepository, BotConfig config) {
+        this.ammoRepository = ammoRepository;
         this.questsRepository = questsRepository;
         this.config = config;
 
@@ -61,7 +64,12 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
             TypeFactory typeFactory = objectMapper.getTypeFactory();
             List<quests> questsList = objectMapper.readValue(new File("db/quests.json"),
                     typeFactory.constructCollectionType(List.class, quests.class));
+            List<ammo> ammoList = objectMapper.readValue(new File("db/ammo.json"),
+                    typeFactory.constructCollectionType(List.class, ammo.class));
             this.questsRepository.saveAll(questsList);
+            this.ammoRepository.saveAll(ammoList);
+
+
         }
         catch(Exception e) {
             log.error("Error: " + e.getMessage()); //создает сообщение об ошибке в лог файле
@@ -108,6 +116,20 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
                 default: //ответ бота на не определённые комнады
                     commandNotFound(chatID);
                     break;
+                case "/quests":
+                    try {
+                        questschoise(chatID);
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                    break;
+                case "/ammo":
+                    try {
+                        ammochoice(chatID);
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                    break;
             }
 
         }//проверка если вместо сообщения прислали какое либо значение(нажали кнопку)
@@ -145,6 +167,42 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
                     log.error("Error: " + e.getMessage());
                 }
             }
+        }
+    }
+
+    private void ammochoice(long chatID) throws SQLException {
+        Connection connection = DriverManager.getConnection(url, username, password);
+
+        // Выполнение запроса
+        String query = "SELECT * FROM ammo WHERE id = 1";
+        PreparedStatement statement = connection.prepareStatement(query);
+        statement.setInt(0,1);
+
+        ResultSet resultSet = statement.executeQuery();
+
+        // Отправка информации в чат
+        if (resultSet.next()) {
+            String name = resultSet.getString("name");
+            String caliber = resultSet.getString("caliber");
+            sendMessage (chatID,"Name: " + name + ", Caliber: " + caliber);
+            SendMessage message = new SendMessage();
+            message.setChatId(chatID);
+            }
+        }
+
+
+
+    private void questschoise(long chatID) throws SQLException {
+        Connection connection = DriverManager.getConnection(url, username, password);
+        String query = "SELECT * FROM quests";
+        Statement statement = connection.createStatement();
+        ResultSet resultSet = statement.executeQuery(query);
+        while (resultSet.next()) {
+            String title = resultSet.getString("title" );
+            String dealer = resultSet.getString("dealer" );
+            sendMessage(chatID,"tile:"+title+ "dealer:"+dealer);
+            SendMessage message = new SendMessage();
+            message.setChatId(chatID);
         }
     }
 
