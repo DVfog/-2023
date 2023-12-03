@@ -8,8 +8,8 @@ public class ammo {
     private Integer id;
     private String name;
     private String caliber;
-    private Long damage;
-    private Long penetrationPower;
+    private String damage;
+    private String penetrationPower;
 
     public Integer getId() {
         return id;
@@ -35,19 +35,23 @@ public class ammo {
         this.caliber = shortname;
     }
 
-    public Long getDamage() {
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public String getDamage() {
         return damage;
     }
 
-    public void setDamage(Long damage) {
+    public void setDamage(String damage) {
         this.damage = damage;
     }
 
-    public Long getPenetrationPower() {
+    public String getPenetrationPower() {
         return penetrationPower;
     }
 
-    public void setPenetrationPower(Long penetrationPower) {
+    public void setPenetrationPower(String penetrationPower) {
         this.penetrationPower = penetrationPower;
     }
 }

@@ -7,6 +7,13 @@
     "penetrationPower": 13
     },
   {
+    "id": "6",
+    "name": "9x18mm PM PS gs PPO",
+    "caliber": "Caliber9x18PM",
+    "damage": 55,
+    "penetrationPower": 6
+  },
+  {
     "id": 2,
     "name": "7.62x51mm M62 Tracer",
     "caliber": "Caliber762x51",
@@ -33,5 +40,12 @@
     "caliber": "Caliber545x39",
     "damage": 65,
     "penetrationPower": 15
+  },
+  {
+    "id": 7,
+    "name": "7.62x51mm Ultra Nosler",
+    "caliber": "Caliber762x51",
+      "damage": 107,
+      "penetrationPower": 15
   }
 ]
