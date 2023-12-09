@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
@@ -28,23 +27,25 @@ import java.util.List;
 
 @Slf4j
 @Component //позволяет автоматически создать экземпляр Спрингу
-public class TelegramBot extends TelegramLongPollingBot {//расширение класс позволяющее общаться юоту с телеграммом
+public class TelegramBot extends TelegramLongPollingBot {//расширение класс позволяющее общаться боту с телеграммом
 
     @Autowired
     private UserRepository userRepository;
-
     private AmmoRepository ammoRepository;
     private QuestsRepository questsRepository;
     final BotConfig config;
 
+    static final String ERROR_TEXT = "ERROR: ";
     static final String url = "jdbc:mysql://localhost:3306/tg-bot";
     static final String username = "root";
     static final String password = "Parol1/5";
     static final String HELP_TEXT = "Этот бот создан для КУРСОВОЙ РАБОТЫ.\n\n" +
-            "Вы можете выполнять команды из главного меню слева или набрав команду:\n\n" +
-            "Введите /start чтобы начать работу.\n";
+            "Вы можете выполнять команды из главного меню слева или набрав команду:\n" +
+            "Введите /start чтобы начать работу.\n\n" +
+            "Бот выполняет запросы пользователя по выводу информации, создавая по своей сути справочник по различным аспектам игры.";
 
-    //Конструктор
+    //В этом месте определяется конструктор класса `TelegramBot`,
+    //который принимает три параметра: `ammoRepository`, `questsRepository` и `config`.
     public TelegramBot(AmmoRepository ammoRepository, QuestsRepository questsRepository, BotConfig config) {
         this.ammoRepository = ammoRepository;
         this.questsRepository = questsRepository;
@@ -54,8 +55,6 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
         List<BotCommand> listofCommand = new ArrayList<>();
         listofCommand.add(new BotCommand("/start", "Приветсвие бота"));
         listofCommand.add(new BotCommand("/help", "Информация по использованию бота"));
-        listofCommand.add(new BotCommand("/quests","Квесты"));
-        listofCommand.add(new BotCommand("/ammo", "Патроны"));
         try {
             ObjectMapper objectMapper = new ObjectMapper(); //В этом месте происходит запись и обновление данных в бд из json файлов
             TypeFactory typeFactory = objectMapper.getTypeFactory();
@@ -67,10 +66,9 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
             this.ammoRepository.saveAll(ammoList);
         }
         catch(Exception e) {
-            log.error("Error: " + e.getMessage()); //создает сообщение об ошибке в лог файле
+            log.error(ERROR_TEXT + e.getMessage()); //создает сообщение об ошибке в лог файле
         }
     }
-
     @Override
     //бот передает телеграмму свое имя
     public String getBotUsername() { return config.getBotName(); }
@@ -83,111 +81,93 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
     //Главный, центтральный метод всего приложение,
     //тут происхдит обработка входных данных и возвращает ответ.
     public void onUpdateReceived(Update update) {
-        //Проверка ботом чата на начличие новых сообщений
+        //Проверка ботом чата на наличие новых сообщений
         if(update.hasMessage() && update.getMessage().hasText()){
-            String messegeText = update.getMessage().getText();
+            String messageText = update.getMessage().getText();
             long chatID = update.getMessage().getChatId();
-            //Команды для бота
-            switch (messegeText) {
-                //При вызове пользователем этой команды, бот вызывает метод проверки регистрации пользователя в бд.
-                case "/start", "старт":
-                    registerUser(update.getMessage());
-                    startCommandReceived(chatID, update.getMessage().getChat().getFirstName());
-                    break;
-                case "/help", "помощь":
-                    sendMessage(chatID, HELP_TEXT);
-                    break;
-                case "/quests","квесты","задания","Квесты","Quests":
-                    dealerchoise(chatID);
-                    break;
-                case "/ammo", "патроны", "Ammo", "Патроны":
-                    ammochoice(chatID);
-                    break;
-                case "76239", "762x39", "7.62x39", "7,62x39","7,62х39", "7.62х39","762х39":
-                    try {
-                        ammos(chatID,"Caliber762x39");
-                    } catch (SQLException e) {
-                        throw new RuntimeException(e);
-                    }
-                    break;
-                case "918", "9x18","9х18":
-                    try {
-                        ammos(chatID,"Caliber9x18PM");
-                    } catch (SQLException e) {
-                        throw new RuntimeException(e);
-                    }
-                    break;
-                default: //ответ бота на не определённые комнады
-                    commandNotFound(chatID);
-                    break;
+
+            if(messageText.contains("/send") && config.getOwnerID() == chatID) { //Реализация рассылки сообщений всем пользователям, перед отправкой проходит проверка чата на администраторский (тот который указан в конфиге)
+                var textToSend = EmojiParser.parseToUnicode(messageText.substring(messageText.indexOf(" ")));
+                var users = userRepository.findAll();
+                for (User user: users){
+                    sendMessage(user.getChatID(), textToSend);
+                }
+            }
+            else {
+                //Команды для бота
+                switch (messageText) {
+                    //При вызове пользователем этой команды, бот вызывает метод проверки регистрации пользователя в бд.
+                    case "/start", "старт", "start", "Привет", "Hi", "привет":
+                        registerUser(update.getMessage());
+                        startCommandReceived(chatID, update.getMessage().getChat().getFirstName());
+                        break;
+                    case "/help", "помощь", "help":
+                        sendMessage(chatID, HELP_TEXT);
+                        break;
+                    case "/quests", "квесты", "задания", "Квесты", "Quests", "quests":
+                        questschoice(chatID);
+                        break;
+                    case "/ammo", "патроны", "Ammo", "Патроны", "ammo":
+                        ammochoice(chatID);
+                        break;
+                    case "76239", "762x39", "7.62x39", "7,62x39", "7,62х39", "7.62х39", "762х39":
+                        ammotypecase(chatID, "Caliber762x39");
+                        break;
+                    case "918", "9x18", "9х18":
+                        ammotypecase(chatID, "Caliber9x18PM");
+                        break;
+                    default: //ответ бота на не определённые комнады
+                        commandNotFound(chatID);
+                        break;
+                }
             }
 
         }//проверка если вместо сообщения прислали какое либо значение(нажали кнопку)
         else if (update.hasCallbackQuery()) {
             String callbackData = update.getCallbackQuery().getData();
-            long messageID = update.getCallbackQuery().getMessage().getMessageId();
             long chatID = update.getCallbackQuery().getMessage().getChatId();
 
-            if(callbackData.equals("Caliber9x18PM")){
-                try {
-                    ammos(chatID,"Caliber9x18PM");
-                } catch (SQLException e) {
-                    throw new RuntimeException(e);
+            try {
+                String ammoType = null;
+                // обработка данных
+                if (callbackData.equals("Caliber9x18PM")) {
+                    ammoType = "Caliber9x18PM";
+                } else if (callbackData.equals("Caliber762x51")) {
+                    ammoType = "Caliber762x51";
+                } else if (callbackData.equals("Caliber762x39")) {
+                    ammoType = "Caliber762x39";
+                } else if (callbackData.equals("Caliber545x39")) {
+                    ammoType = "Caliber545x39";
+                } else if (callbackData.equals("Caliber556x45NATO")) {
+                    ammoType = "Caliber556x45NATO";
                 }
-            }
-            else  if(callbackData.equals("Caliber762x51")){
-                try {
-                    ammos(chatID,"Caliber762x51");
-                } catch (SQLException e) {
-                    throw new RuntimeException(e);
+
+                if (ammoType != null) {
+                    ammos(chatID, ammoType);
+                } else {
+
                 }
-            }
-            else  if(callbackData.equals("Caliber762x39")){
-                try {
-                    ammos(chatID,"Caliber762x39");
-                } catch (SQLException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-            else  if(callbackData.equals("Caliber545x39")){
-                try {
-                    ammos(chatID,"Caliber545x39");
-                } catch (SQLException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-            else  if(callbackData.equals("Caliber556x45NATO")){
-                try {
-                    ammos(chatID,"Caliber556x45NATO");
-                } catch (SQLException e) {
-                    throw new RuntimeException(e);
-                }
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
             }
         }
+
     }
 
-    private void questschoice(long chatID, String quests) {
-
-        SendMessage message = new SendMessage();
-        message.setChatId(String.valueOf(chatID));
-        message.setText("Нужно выбрать задание");
-        InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup(); //создание экранных кнопок под сообщением
-        List<List<InlineKeyboardButton>> rowsInLine = new ArrayList<>();
-        List<InlineKeyboardButton> rowInLine = new ArrayList<>();
-        var pmButton = new InlineKeyboardButton();
-        pmButton.setText(quests);
-        pmButton.setCallbackData("Caliber9x18PM");
-        rowInLine.add(pmButton);
-        rowsInLine.add(rowInLine);
-        markupInline.setKeyboard(rowsInLine);
-        message.setReplyMarkup(markupInline);
+    private void ammotypecase (long chatID, String ammo) { //Принимаем значения от нажатой кнопки и отправляем их в метод для составления запроса в бд
         try {
-            execute(message);
-        } catch (TelegramApiException e) {
-            log.error("Error: " + e.getMessage());
+            ammos(chatID, ammo);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
+    private void questschoice(long chatID) {
+        SendMessage message = new SendMessage();
+        sendMessage (chatID, "Функция находится в разработке, следите за новостями");
+        message.setChatId(chatID);
+    }
 
+    // Метот создания экранных кнопок под сообщениями бота, которые при нажатии отправляют вместо сообщений данные
     private void ammochoice (Long chatID) {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatID));
@@ -196,8 +176,8 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
         List<List<InlineKeyboardButton>> rowsInLine = new ArrayList<>();
         List<InlineKeyboardButton> rowInLine = new ArrayList<>();
         var pmButton = new InlineKeyboardButton();
-        pmButton.setText("9x18PM");
-        pmButton.setCallbackData("Caliber9x18PM");
+        pmButton.setText("9x18PM"); // название кнопки
+        pmButton.setCallbackData("Caliber9x18PM"); //данные которые она возвращает
         var arButton = new InlineKeyboardButton();
         arButton.setText("7,62x51");
         arButton.setCallbackData("Caliber762x51");
@@ -219,13 +199,11 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
         markupInline.setKeyboard(rowsInLine);
         message.setReplyMarkup(markupInline);
 
-        try {
-            execute(message);
-        } catch (TelegramApiException e) {
-            log.error("Error: " + e.getMessage());
-        }
+        executeMessage(message);
     }
-
+    // Метод при вызове которого бот обращается в базу данных и выполняет указанный запрос, после чего выводит его пользователю
+    // Метод составляет необходимый запрос, путем нажатия пользователем кнопки которая возвращает данные
+    // для этого метода в которых указан необходимое значение для подстановки в запрос
     private void ammos (long chatID, String ammo) throws SQLException{
         Connection connection = DriverManager.getConnection(url, username, password);
         String query = "SELECT * FROM ammo where caliber like ";
@@ -235,80 +213,27 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
         ResultSet resultSet = statement.executeQuery(query);
         while (resultSet.next()) { // Отправка информации в чат
             String name = resultSet.getString("name");
-            String caliber = resultSet.getString("caliber");
             String damage = resultSet.getString("damage");
             String penetrationPower = resultSet.getString("penetration_power");
-            sendMessage (chatID,"Патрон: " + name + ", \nкалибр: " + caliber + ", \nнаносит урон: " + damage + ", с пробитием: " +penetrationPower+ ".");
+            sendMessage (chatID,"Патрон: " + name + ", \nнаносит урон: " + damage + ", с пробитием: " +penetrationPower+ ".");
             SendMessage message = new SendMessage();
             message.setChatId(chatID);
          }
     }
-    private void quests(long chatID, String quests) throws SQLException {
-        Connection connection = DriverManager.getConnection(url, username, password);
-        String query = "SELECT * FROM quests where title like ";
-        query = query + "'" + quests + "'" + ";";
-        System.out.println(query);
-        Statement statement = connection.createStatement();
-        ResultSet resultSet = statement.executeQuery(query);
-        while (resultSet.next()) {
-            String title = resultSet.getString("title" );
-            String dealer = resultSet.getString("dealer" );
-            sendMessage(chatID,"tile: "+title+ " dealer: "+dealer);
-            SendMessage message = new SendMessage();
-            message.setChatId(chatID);
-        }
-    }
 
     //метод ответа на неопределеные сообщения
     private void commandNotFound(long chatID) {
-        String answer = EmojiParser.parseToUnicode("Я не знаю такую команду." + " :neutral_face:");
+        String answer = EmojiParser.parseToUnicode("Неизвестная команда" + " :neutral_face:");
         sendMessage (chatID, answer);
         log.info("Replied to user: " + chatID); //создает сообщение в лог файле об ответе бота пользователю
     }
 
-
-    // Метот создания экранных кнопок под сообщениями бота
-        private void dealerchoise(long chatId) {
-            SendMessage message = new SendMessage();
-            message.setChatId(String.valueOf(chatId));
-            message.setText("Нужно выбрать торговца:");
-            InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup(); //создание экранных кнопок под сообщением
-            List<List<InlineKeyboardButton>> rowsInLine = new ArrayList<>();
-            List<InlineKeyboardButton> rowInLine = new ArrayList<>();
-            var prapButton = new InlineKeyboardButton();
-            prapButton.setText("Прапор");
-            prapButton.setCallbackData("Prapor");
-            var lButton = new InlineKeyboardButton();
-            lButton.setText("Лыжник");
-            lButton.setCallbackData("Skier");
-            var therButton = new InlineKeyboardButton();
-            therButton.setText("Терапевт");
-            therButton.setCallbackData("Therapist");
-            var RagButton = new InlineKeyboardButton();
-            RagButton.setText("Барахольщик");
-            RagButton.setCallbackData("Ragman");
-            rowInLine.add(prapButton);
-            rowInLine.add(therButton);
-            rowInLine.add(lButton);
-            rowInLine.add(RagButton);
-            rowsInLine.add(rowInLine);
-            markupInline.setKeyboard(rowsInLine);
-            message.setReplyMarkup(markupInline);
-            try{
-                execute(message);
-            }
-            catch (TelegramApiException e){
-                log.error("Error: " + e.getMessage());
-            }
-
-        }
 
         //Тут бот сначала сверяет пользователя в базе данных и если не находит зарегистрированного пользователя, то регистрирует его
     private void registerUser(Message msg) {
         if(userRepository.findById(msg.getChatId()).isEmpty()){
             var chatId = msg.getChatId();
             var chat = msg.getChat();
-
             User user = new User();
             user.setChatID(chatId);
             user.setFirstName(chat.getFirstName());
@@ -316,7 +241,6 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
             user.setUserName(chat.getUserName());
             user.setRegisteredAt(new Timestamp(System.currentTimeMillis()));
             userRepository.save(user);
-
             log.info("registered a user: " + user, chatId); //отправляет запись в лог файл об регистрации пользователя
 
         }
@@ -324,7 +248,7 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
 
     //Метод приветсвия бота
     private void startCommandReceived(Long chatID, String name) {
-        String answer = EmojiParser.parseToUnicode("Привет, Тарковчанин!  " + name +  ", чем я могу помочь ?" + ":blush:" );
+        String answer = EmojiParser.parseToUnicode("Здравствуйте, " + name +  ". Этот бот создан для помощи людям играющим в Eft. \nCоблюдайте правила использования платформы." + ":blush:" );
         log.info("Greeted the user: " + name, chatID);
         sendMessage(chatID, answer);
 
@@ -335,16 +259,12 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
         message.setChatId(String.valueOf(chatID));
         message.setText(textToSend);
 
-        //Создание экранной клавиатуры бота.
+        //Создание экранной клавиатуры бота которая отправляет готовые сообщения
         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
-
         List<KeyboardRow> keyboardRows = new ArrayList<>();
-
         KeyboardRow row = new KeyboardRow();
-
-        row.add("/quests");
-        row.add("/ammo");
-
+        row.add("Квесты");
+        row.add("Патроны");
         keyboardRows.add(row);
         row = new KeyboardRow();
         row.add("Броня");
@@ -353,11 +273,16 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
         keyboardRows.add(row);
         keyboardMarkup.setKeyboard(keyboardRows);
         message.setReplyMarkup(keyboardMarkup);
+        executeMessage(message);
+    }
+    //Этот метод используется для выполнения запроса на отправку сообщения через Telegram API.
+    // Он принимает объект `SendMessage`, который представляет собой запрос на отправку сообщения.
+    private void executeMessage(SendMessage message){
         try{
             execute(message);
         }
         catch (TelegramApiException e){
-            log.error("Error: " + e.getMessage());
+            log.error(ERROR_TEXT + e.getMessage());
         }
     }
 }

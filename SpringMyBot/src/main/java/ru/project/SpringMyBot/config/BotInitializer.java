@@ -10,14 +10,15 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 import ru.project.SpringMyBot.service.TelegramBot;
 
-@Slf4j
-@Component
+@Slf4j //Аннотация Lombok для автоматической генерации логгера.
+@Component //Аннотация Spring, помечающая этот класс как компонент, чтобы Spring мог управлять им.
 public class BotInitializer {
 
-    @Autowired //автоматическое подключение
+    @Autowired //Аннотация, указывающая Spring внедрить зависимость автоматически.
     TelegramBot bot;
 
     @EventListener({ContextRefreshedEvent.class})
+    //Метод регистрирует вашего бота в Telegram API при старте приложения.
     public void init () throws TelegramApiException {
         TelegramBotsApi telegramBotsApi = new TelegramBotsApi(DefaultBotSession.class);
         try {
