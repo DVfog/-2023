@@ -55,8 +55,8 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
         List<BotCommand> listofCommand = new ArrayList<>();
         listofCommand.add(new BotCommand("/start", "Приветсвие бота"));
         listofCommand.add(new BotCommand("/help", "Информация по использованию бота"));
-        try {
-            ObjectMapper objectMapper = new ObjectMapper(); //В этом месте происходит запись и обновление данных в бд из json файлов
+        try {//В этом месте происходит запись и обновление данных в бд из json файлов с помощью мапинга
+            ObjectMapper objectMapper = new ObjectMapper();
             TypeFactory typeFactory = objectMapper.getTypeFactory();
             List<quests> questsList = objectMapper.readValue(new File("db/quests.json"),
                     typeFactory.constructCollectionType(List.class, quests.class));
@@ -85,9 +85,10 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
         if(update.hasMessage() && update.getMessage().hasText()){
             String messageText = update.getMessage().getText();
             long chatID = update.getMessage().getChatId();
-
-            if(messageText.contains("/send") && config.getOwnerID() == chatID) { //Реализация рассылки сообщений всем пользователям, перед отправкой проходит проверка чата на администраторский (тот который указан в конфиге)
-                var textToSend = EmojiParser.parseToUnicode(messageText.substring(messageText.indexOf(" ")));
+            //Реализация рассылки сообщений всем пользователям, перед отправкой проходит проверка чата на администраторский (тот который указан в файле конфигурации)
+            if(messageText.contains("/send") && config.getOwnerID() == chatID) {
+                var textToSend = EmojiParser.parseToUnicode
+                        (messageText.substring(messageText.indexOf(" ")));
                 var users = userRepository.findAll();
                 for (User user: users){
                     sendMessage(user.getChatID(), textToSend);
@@ -215,7 +216,8 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
             String name = resultSet.getString("name");
             String damage = resultSet.getString("damage");
             String penetrationPower = resultSet.getString("penetration_power");
-            sendMessage (chatID,"Патрон: " + name + ", \nнаносит урон: " + damage + ", с пробитием: " +penetrationPower+ ".");
+            sendMessage (chatID,"Патрон: " + name + ", \nнаносит урон: "
+                    + damage + ", с пробитием: " +penetrationPower+ ".");
             SendMessage message = new SendMessage();
             message.setChatId(chatID);
          }
@@ -241,7 +243,8 @@ public class TelegramBot extends TelegramLongPollingBot {//расширение 
             user.setUserName(chat.getUserName());
             user.setRegisteredAt(new Timestamp(System.currentTimeMillis()));
             userRepository.save(user);
-            log.info("registered a user: " + user, chatId); //отправляет запись в лог файл об регистрации пользователя
+            log.info("registered a user: " + user, chatId);
+            //отправляет запись в лог файл об регистрации пользователя
 
         }
     }
